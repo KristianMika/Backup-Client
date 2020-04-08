@@ -7,7 +7,7 @@ from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-from backup_client import SCOPES
+from Backup_client.backup_client import SCOPES
 
 
 def authorize():

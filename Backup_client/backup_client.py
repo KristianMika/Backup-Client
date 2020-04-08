@@ -1,8 +1,5 @@
 from __future__ import print_function
-import client_auth
-import FileManager
-import FileCipher
-
+from Backup_client import FileManager, client_auth, FileCipher
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/drive']
