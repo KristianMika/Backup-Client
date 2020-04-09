@@ -22,18 +22,27 @@ class DatabaseManager:
         )
         self.cursor = self.db.cursor()
 
-    def insert(self, name, f_path, f_hash, key, iv):
+    def insert(self, name, f_hash, key, iv, flags):
         query = ''
         res = self.get(name)
+
         if not res:
-            template = "INSERT INTO files (name, path, hash, s_key, iv) VALUES ('{}', '{}', '{}', '{}', '{}')"
-            query = template.format(name, f_path, f_hash, key, iv)
+            template = "INSERT INTO files (name,  hash, s_key, iv) VALUES ('{}', '{}', '{}', '{}')"
+            query = template.format(name, f_hash, key, iv)
         else:
+            if not flags.force:
+                util.ColorPrinter.print_warning("File " + name + " is already in your vault.")
+                choice = input("Do you want to overwrite it? Y/N: ")
+                if choice.lower() not in ["y", 'yeas', "yeah"]:
+                    print("Terminating...")
+                    exit(0)
             template = "UPDATE files set hash='{}', s_key='{}', iv='{}' WHERE name='{}'"
             query = template.format(f_hash, key, iv, name)
 
+        if flags.verbose: print("Saving crypto parameters...", end='')
         self.cursor.execute(query)
         self.db.commit()
+        if flags.verbose: print("OK")
 
     def get(self, f_name):
         template = "SELECT * FROM files WHERE name='{}'"

@@ -1,6 +1,7 @@
 import io
 
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+
 import util
 
 
@@ -9,20 +10,15 @@ class FileManager:
         # results = service.files().list(pageSize=10, fields="nextPageToken, files(id, name)").execute()
         results = service.files().list().execute()
         items = results.get('files', [])
-        util.prettify_listing(items)
         return items
 
     def upload(self, file_path, service):
         file_name = util.get_file_name(file_path)
-        print("Uploading {}...".format(file_name))
         file_metadata = {'name': file_name}
         media = MediaFileUpload(file_path)
         file = service.files().create(body=file_metadata,
                                       media_body=media,
                                       fields='id').execute()
-        print("Finished...\n")
-
-
 
     def download(self, service, id, path, name):
         request = service.files().get_media(fileId=id)
@@ -34,7 +30,6 @@ class FileManager:
             print("Download %d%%." % int(status.progress() * 100))
 
         util.save_file(fh, path, name)
-        print()
 
     def create_folder(self, service, directory):
         file_metadata = {
@@ -46,6 +41,4 @@ class FileManager:
 
     def search_file(self, service, file_name):
         results = service.files().list(q="name contains '" + file_name + "'").execute()
-        items = results.get('files', [])
-        # util.prettify_listing(items)
-        return items[0]["id"]
+        return results.get('files', [])

@@ -6,6 +6,7 @@ def load_cred(path):
     with open(path, "r") as file:
         return file.readline()
 
+
 def save_file(fh, path, name):
     with io.open(os.path.join(path, name), "wb") as file:
         fh.seek(0)
@@ -13,7 +14,7 @@ def save_file(fh, path, name):
 
 
 def prettify_listing(items):
-    print("<ls>: ({}) items".format(len(items)))
+    print("{} items".format(len(items)))
     i = 1
     for item in items:
         print("{}. {} ({})".format(i, item["name"], item["mimeType"]))
@@ -22,7 +23,6 @@ def prettify_listing(items):
 
 
 def get_file_bytes(path):
-    bytes = []
     with open(path, "rb") as file:
         bytes = file.read()
     return bytes
@@ -33,9 +33,9 @@ def write_file_bytes(bytes, f_path, f_name):
         file.write(bytes)
 
 
-
 def get_file_name(path):
     return path.split("/")[-1]
+
 
 def remove_cipher_extension(file):
     if len(file) > 7 and file[-7:] == ".cipher":
@@ -45,6 +45,11 @@ def remove_cipher_extension(file):
 
 def pad(bytes, mod_len):
     return bytes + (b'0' * (mod_len - len(bytes) % mod_len))
+
+
+def print_if_verbose(flags, msg, clr):
+    if flags.verbose:
+        print(clr + msg + clr)
 
 
 def unpad(bytes):
@@ -58,24 +63,26 @@ def unpad(bytes):
     return bytes[:last_ind + 1]
 
 
+def terminate(choice):
+    if choice in ["x", "X", "exit", "EXIT"]:
+        print("Terminating...")
+        exit(0)
+
+
 class ColorPrinter:
-    BLUE = '\033[94m'
-    GREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
 
-    def print_green(self, msg):
-        print(self.GREEN + msg + self.ENDC)
+    @staticmethod
+    def print_green(msg):
+        print('\033[92m' + msg + '\033[92m')
 
-    def print_blue(self, msg):
-        print(self.BLUE + msg + self.ENDC)
+    @staticmethod
+    def print_blue(msg):
+        print('\033[94m' + msg + '\033[94m')
 
-    def print_warning(self, msg):
-        print(self.WARNING + msg + self.ENDC)
+    @staticmethod
+    def print_warning(msg):
+        print('\033[93m' + msg + '\033[93m')
 
-    def print_fail(self, msg):
-        print(self.FAIL + msg + self.ENDC)
-
+    @staticmethod
+    def print_fail(msg):
+        print('\033[91m' + msg + '\033[91m')
