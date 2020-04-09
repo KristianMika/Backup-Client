@@ -52,3 +52,9 @@ class DatabaseManager:
         if res:
             return res[0]
         return res
+
+    def delete(self, f_name):
+        template = "DELETE FROM files WHERE name='{}' LIMIT 1"
+        query = template.format(f_name)
+        self.cursor.execute(query)
+        self.db.commit()

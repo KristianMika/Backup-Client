@@ -11,7 +11,7 @@ import util
 
 CREDENTIAL_FILES = "/home/kiko/.LOGIN_CREDENTIALS"
 ENCRYPTION_POOL = "/tmp/encryption_pool"
-DOWNLOAD_FOLDER = "/home/kiko/Desktop/drive_downloaded"
+DOWNLOAD_FOLDER = ""
 DB_ENTRY_HASH_OFFSET = 1
 DB_ENTRY_KEY_OFFSET = 2
 DB_ENTRY_IV_OFFSET = 3
@@ -105,7 +105,7 @@ class Client:
             util.prettify_listing(res)
 
             choice = -1
-            while choice < 1 or choice >= len(res):
+            while choice < 1 or choice > len(res):
                 choice = input("Which one did you mean?: [index] or x to exit:")
                 util.terminate(choice)
                 choice = int(choice)
@@ -114,13 +114,16 @@ class Client:
         if len(res) == 1:
             return res[0]
 
-        print("File " + file_name + " isn't present in your vault.")
+        util.ColorPrinter.print_fail('File "' + file_name + '" isn\'t present in your vault.')
+
         if not (self.ls_chached):
             self.update_listed_files()
-        util.prettify_listing(self.listed_files)
 
+        util.prettify_listing(self.listed_files)
+        if not self.listed_files:
+            exit(0)
         choice = -1
-        while choice < 1 or choice >= len(self.listed_files):
+        while choice < 1 or choice > len(self.listed_files):
             choice = input("Choose file to download by entering it's number or enter 'x' to exit: ")
             util.terminate(choice)
             choice = int(choice)
@@ -138,6 +141,7 @@ def parse_args():
 
 
 def main():
+    DOWNLOAD_FOLDER = os.getcwd()
     if not os.path.exists(ENCRYPTION_POOL):
         os.mkdir(ENCRYPTION_POOL)
 
@@ -155,8 +159,9 @@ def main():
 
     elif b_cl.flags.action.lower() in ["download", "d", "down"]:
         f_file = b_cl.select_file_blind(b_cl.flags.action_arg)
-        print("Downloading" + f_file["name"] + "...")
-        b_cl.download_file(f_file["id"], DOWNLOAD_FOLDER, f_file["name"])
+        print("Downloading " + f_file["name"] + "...")
+        b_cl.download_file(f_file["id"], ENCRYPTION_POOL, f_file["name"])
+        b_cl.decrypt_file(ENCRYPTION_POOL, f_file["name"], DOWNLOAD_FOLDER)
 
     elif b_cl.flags.action.lower() in ["diff"]:
         file_bytes = util.get_file_bytes(b_cl.flags.action_arg)  # TODO: check path, if incorrect -> list files
@@ -170,8 +175,20 @@ def main():
             print("Files are identical.")
         else:
             print("Files are different")
+    elif b_cl.flags.action.lower() in ["del", "delete", "remove", "rm"]:
+        f_file = b_cl.select_file_blind(b_cl.flags.action_arg)
+        choice = input("Are you sure? [Y/N]: ")
+        if choice.lower() not in ["y", "yes", "yeah"]:
+            print("Terminating... ")
+            exit(0)
+
+        print("Deleting " + f_file["name"] + "...")
+        b_cl.db_m.delete(util.remove_cipher_extension(f_file["name"]))
+        b_cl.man.delete(b_cl.service, f_file)
+        util.ColorPrinter.print_green("Deleted")
+
     else:
-        print("Incorrect argument " + b_cl.flags.action_arg + ".\nUse -h for help.")
+        print("Incorrect argument " + b_cl.flags.action + ".\nUse -h for help.")
 
 
 if __name__ == '__main__':

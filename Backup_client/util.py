@@ -14,7 +14,13 @@ def save_file(fh, path, name):
 
 
 def prettify_listing(items):
-    print("{} items".format(len(items)))
+    if len(items) > 1:
+        print("{} items".format(len(items)))
+    elif len(items) == 1:
+        print("{} item".format(len(items)))
+    else:
+        print("Your vault is empty")
+        return
     i = 1
     for item in items:
         print("{}. {} ({})".format(i, item["name"], item["mimeType"]))
@@ -73,16 +79,16 @@ class ColorPrinter:
 
     @staticmethod
     def print_green(msg):
-        print('\033[92m' + msg + '\033[92m')
+        print('\033[92m' + msg + '\033[0m')
 
     @staticmethod
     def print_blue(msg):
-        print('\033[94m' + msg + '\033[94m')
+        print('\033[94m' + msg + '\033[0m')
 
     @staticmethod
     def print_warning(msg):
-        print('\033[93m' + msg + '\033[93m')
+        print('\033[93m' + msg + '\033[0m')
 
     @staticmethod
     def print_fail(msg):
-        print('\033[91m' + msg + '\033[91m')
+        print('\033[91m' + msg + '\033[0m')

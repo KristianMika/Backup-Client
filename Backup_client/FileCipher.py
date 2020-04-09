@@ -1,9 +1,10 @@
+import os
+
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto.Random import get_random_bytes
 
 import backup_client
-import os
 import util
 
 

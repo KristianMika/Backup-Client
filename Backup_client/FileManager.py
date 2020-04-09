@@ -42,3 +42,9 @@ class FileManager:
     def search_file(self, service, file_name):
         results = service.files().list(q="name contains '" + file_name + "'").execute()
         return results.get('files', [])
+
+    def delete(self, service, item):
+        del_response = service.files().delete(fileId=item['id']).execute()
+
+    def empty_trash(self, service):
+        trash_response = service.files().emptyTrash().execute()
