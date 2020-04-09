@@ -2,9 +2,12 @@ import io
 import os
 
 
-def save_file(fh):
-    curr_dir = os.getcwd()
-    with io.open(os.path.join(curr_dir, "new_file.jpg"), "wb") as file:
+def load_cred(path):
+    with open(path, "r") as file:
+        return file.readline()
+
+def save_file(fh, path, name):
+    with io.open(os.path.join(path, name), "wb") as file:
         fh.seek(0)
         file.write(fh.read())
 
@@ -25,16 +28,19 @@ def get_file_bytes(path):
     return bytes
 
 
-def write_file_bytes(bytes, path):
-    # with open(path, "wb") as file:
-    with open(path + ".cipher", "wb") as file:
+def write_file_bytes(bytes, f_path, f_name):
+    with open(os.path.join(f_path, f_name), "wb") as file:
         file.write(bytes)
 
-    return path + ".cipher"
 
 
 def get_file_name(path):
     return path.split("/")[-1]
+
+def remove_cipher_extension(file):
+    if len(file) > 7 and file[-7:] == ".cipher":
+        return file[:-7]
+    return file
 
 
 def pad(bytes, mod_len):
@@ -50,3 +56,26 @@ def unpad(bytes):
         else:
             break
     return bytes[:last_ind + 1]
+
+
+class ColorPrinter:
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+    def print_green(self, msg):
+        print(self.GREEN + msg + self.ENDC)
+
+    def print_blue(self, msg):
+        print(self.BLUE + msg + self.ENDC)
+
+    def print_warning(self, msg):
+        print(self.WARNING + msg + self.ENDC)
+
+    def print_fail(self, msg):
+        print(self.FAIL + msg + self.ENDC)
+

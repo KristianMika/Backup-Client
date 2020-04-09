@@ -2,17 +2,18 @@ from __future__ import print_function
 
 import os.path
 import pickle
+import backup_client
 
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-from Backup_client.backup_client import SCOPES
 
 
+SCOPES = ['https://www.googleapis.com/auth/drive']
 def authorize():
-    CREDENTIAL_FILES = "LOGIN_CREDENTIALS"
-    pickle_path = os.path.join(CREDENTIAL_FILES, 'token.pickle')
+
+    pickle_path = os.path.join(backup_client.CREDENTIAL_FILES, 'token.pickle')
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first

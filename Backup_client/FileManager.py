@@ -1,8 +1,7 @@
 import io
 
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
-
-from Backup_client import util
+import util
 
 
 class FileManager:
@@ -11,6 +10,7 @@ class FileManager:
         results = service.files().list().execute()
         items = results.get('files', [])
         util.prettify_listing(items)
+        return items
 
     def upload(self, file_path, service):
         file_name = util.get_file_name(file_path)
@@ -22,7 +22,9 @@ class FileManager:
                                       fields='id').execute()
         print("Finished...\n")
 
-    def download(self, service, id):
+
+
+    def download(self, service, id, path, name):
         request = service.files().get_media(fileId=id)
         fh = io.BytesIO()
         downloader = MediaIoBaseDownload(fh, request)
@@ -31,7 +33,7 @@ class FileManager:
             status, done = downloader.next_chunk()
             print("Download %d%%." % int(status.progress() * 100))
 
-        util.save_file(fh)
+        util.save_file(fh, path, name)
         print()
 
     def create_folder(self, service, directory):
