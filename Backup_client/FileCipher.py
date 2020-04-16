@@ -1,7 +1,6 @@
 import os
 
 from Crypto.Cipher import AES
-from Crypto.Hash import SHA256
 from Crypto.Random import get_random_bytes
 
 import backup_client
@@ -10,11 +9,14 @@ import util
 
 class FileCipher:
 
-    def encrypt_file(self, path, key, iv, flags):
+    def encrypt_file(self, path, key, iv, name_iv):
         f_bytes = util.get_file_bytes(path)
         cipher = self.encrypt_bytes(f_bytes, key, iv)
-        f_name = util.get_file_name(path) + ".cipher"
-        util.write_file_bytes(cipher, backup_client.ENCRYPTION_POOL, f_name)
+
+        enc_name = self.encrypt_filename(util.get_file_name(path), key, name_iv)
+
+        f_name = enc_name + ".cipher"
+        util.write_file_bytes(iv + cipher, backup_client.ENCRYPTION_POOL, f_name)
         return os.path.join(backup_client.ENCRYPTION_POOL, f_name)
 
     def encrypt_bytes(self, f_bytes, key, iv):
@@ -23,18 +25,27 @@ class FileCipher:
         cipher = obj.encrypt(f_bytes)
         return cipher
 
+    def encrypt_filename(self, name, key, name_iv):
+        obj = AES.new(key, AES.MODE_CBC, name_iv)
+        name = util.pad(name.encode(), AES.block_size)
+        cipher = obj.encrypt(name)
+        return cipher.hex()
+
+    def decrypt_filename(self, cipher, key, name_iv):
+        obj = AES.new(key, AES.MODE_CBC, name_iv)
+        name = obj.decrypt(bytes.fromhex(util.remove_cipher_extension(cipher)))
+        return util.unpad(name).decode()
+
     def generate_bytes(self, n):
         return get_random_bytes(n)
 
-    def decrypt_file(self, path, key, iv, res_path, res_name):
-        obj2 = AES.new(key, AES.MODE_CBC, iv)
+    def decrypt_file(self, path, key, res_path, name_iv):
         cipher = util.get_file_bytes(path)
+        iv = cipher[:16]
+        cipher = cipher[16:]
+        obj2 = AES.new(key, AES.MODE_CBC, iv)
         plain = bytes(obj2.decrypt(cipher))
         plain = util.unpad(plain)
-        util.write_file_bytes(plain, res_path, res_name)
 
-    def compute_hash(self, file):
-        sha_obj = SHA256.new()
-        sha_obj.update(file)
-        dig = sha_obj.hexdigest()
-        return dig
+        res_name = self.decrypt_filename(util.remove_cipher_extension(util.get_file_name(path)), key, name_iv)
+        util.write_file_bytes(plain, res_path, res_name)

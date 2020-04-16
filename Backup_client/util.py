@@ -23,7 +23,7 @@ def prettify_listing(items):
         return
     i = 1
     for item in items:
-        print("{}. {} ({})".format(i, item["name"], item["mimeType"]))
+        print("{}. {}".format(i, item))
         i += 1
     print()
 

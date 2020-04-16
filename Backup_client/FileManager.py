@@ -27,7 +27,7 @@ class FileManager:
         done = False
         while done is False:
             status, done = downloader.next_chunk()
-            print("Download %d%%." % int(status.progress() * 100))
+            print("Downloading: %d%%..." % int(status.progress() * 100))
 
         util.save_file(fh, path, name)
 

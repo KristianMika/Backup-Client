@@ -3,7 +3,6 @@
 import argparse
 import os
 
-import DatabaseManager
 import FileCipher
 import FileManager
 import client_auth
@@ -15,6 +14,7 @@ DOWNLOAD_FOLDER = ""
 DB_ENTRY_HASH_OFFSET = 1
 DB_ENTRY_KEY_OFFSET = 2
 DB_ENTRY_IV_OFFSET = 3
+AES_KEY_SIZE = 32
 
 
 class Client:
@@ -23,12 +23,6 @@ class Client:
         self.flags = flags
         self.listed_files = []
         self.ls_chached = False
-
-        if self.flags.verbose: print("Connecting to the database...      ", end="")
-
-        self.db_m = DatabaseManager.DatabaseManager()
-
-        if self.flags.verbose: print(" OK")
 
         if self.flags.verbose: print("Authorizing against google drive... ", end="")
 
@@ -40,20 +34,21 @@ class Client:
 
         self.cip = FileCipher.FileCipher()
 
+        self.key = util.get_file_bytes(os.path.join(CREDENTIAL_FILES, "key.secret"))
+
+        self.name_iv = util.get_file_bytes(os.path.join(CREDENTIAL_FILES, "iv.secret"))
+
     def upload_file(self, f_path):
 
         if not os.path.exists(f_path):
             util.ColorPrinter.print_fail("Pleas double check your file name.")
             exit(1)
         iv = self.cip.generate_bytes(16)
-        key = self.cip.generate_bytes(32)
-        f_bytes = util.get_file_bytes(f_path)
-        f_hash = self.cip.compute_hash(f_bytes)
 
-        self.db_m.insert(util.get_file_name(f_path), f_hash, key.hex(), iv.hex(), self.flags)
+        f_bytes = util.get_file_bytes(f_path)
 
         if self.flags.verbose: print("Encrypting...", end='')
-        enc_file_name = self.cip.encrypt_file(f_path, key, iv, self.flags)
+        enc_file_name = self.cip.encrypt_file(f_path, self.key, iv, self.name_iv)
 
         if self.flags.verbose: print("OK")
 
@@ -70,27 +65,19 @@ class Client:
 
         util.ColorPrinter.print_green("Uploaded.")
 
-    def update_listed_files(self):
-        self.listed_files = self.man.list_files(self.service)
-        self.ls_chached = True
-
     def download_file(self, id, path, name):
         self.man.download(self.service, id, path, name)
 
     def decrypt_file(self, f_path, name, res_path):
         decr_name = util.remove_cipher_extension(name)
-        entry = self.db_m.get(decr_name)
-        passw = bytes(bytearray.fromhex(entry[DB_ENTRY_KEY_OFFSET]))
-        iv = bytes(bytearray.fromhex(entry[DB_ENTRY_IV_OFFSET]))
 
-        self.cip.decrypt_file(os.path.join(f_path, name), passw, iv, res_path, decr_name)
+        self.cip.decrypt_file(os.path.join(f_path, name), self.key, res_path, self.name_iv)
 
     def select_and_download_file(self):
-        self.update_listed_files()
-
+        files = self.man.list_files(self.service)
         choice = input("Select: ")
         choice = int(choice)
-        res = list(filter(lambda x: x["id"] == self.listed_files[choice - 1]["id"], self.listed_files))[0]
+        res = list(filter(lambda x: x["id"] == files[choice - 1]["id"], files))[0]
 
         self.download_file(res["id"], ENCRYPTION_POOL, res["name"])
 
@@ -98,11 +85,29 @@ class Client:
 
         os.remove(os.path.join(ENCRYPTION_POOL, res["name"]))
 
+    def gen_key_file(self):
+        key = self.cip.generate_bytes(AES_KEY_SIZE)
+        util.write_file_bytes(key, CREDENTIAL_FILES, "key.secret")
+
+    def gen_iv_file(self):
+        key = self.cip.generate_bytes(16)
+        util.write_file_bytes(key, CREDENTIAL_FILES, "iv.secret")
+
+    def list_files(self, files=None):
+        if not files:
+            files = self.man.list_files(self.service)
+        dec_names = []
+        for file in files:
+            dec_names.append(self.cip.decrypt_filename(file["name"], self.key, self.name_iv))
+        util.prettify_listing(dec_names)
+        return files
+
     def select_file_blind(self, file_name):
-        res = self.man.search_file(self.service, file_name)
+        enc_name = self.cip.encrypt_filename(file_name, self.key, self.name_iv)
+        res = self.man.search_file(self.service, enc_name)
 
         if len(res) > 1:
-            util.prettify_listing(res)
+            self.list_files(res)
 
             choice = -1
             while choice < 1 or choice > len(res):
@@ -114,27 +119,25 @@ class Client:
         if len(res) == 1:
             return res[0]
 
-        util.ColorPrinter.print_fail('File "' + file_name + '" isn\'t present in your vault.')
+        util.ColorPrinter.print_fail('Error ocured while locating your file.')
 
-        if not (self.ls_chached):
-            self.update_listed_files()
+        files = self.list_files()
 
-        util.prettify_listing(self.listed_files)
-        if not self.listed_files:
+        if not files:
             exit(0)
         choice = -1
-        while choice < 1 or choice > len(self.listed_files):
+        while choice < 1 or choice > len(files):
             choice = input("Choose file to download by entering it's number or enter 'x' to exit: ")
             util.terminate(choice)
             choice = int(choice)
-        return self.listed_files[choice - 1]
+        return files[choice - 1]
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--verbose", action='store_true', help="enable verbose mode")
     parser.add_argument("-f", "--force", action='store_true', help="overwrite files without asking")
-    parser.add_argument("action", type=str, help="UPLOAD / DOWNLOAD / DIFF")
+    parser.add_argument("action", type=str, help="UPLOAD / DOWNLOAD")
     parser.add_argument("action_arg", nargs='?', help="[file name]")
 
     return parser.parse_args()
@@ -152,29 +155,16 @@ def main():
         b_cl.upload_file(abs_path)
 
     elif b_cl.flags.action.lower() in ["l", "ls", "list"]:
-        if not b_cl.ls_chached:
-            b_cl.update_listed_files()
-        util.prettify_listing(b_cl.listed_files)
+        b_cl.list_files()
 
 
     elif b_cl.flags.action.lower() in ["download", "d", "down"]:
         f_file = b_cl.select_file_blind(b_cl.flags.action_arg)
-        print("Downloading " + f_file["name"] + "...")
         b_cl.download_file(f_file["id"], ENCRYPTION_POOL, f_file["name"])
+        print("Decrypting ...")
         b_cl.decrypt_file(ENCRYPTION_POOL, f_file["name"], DOWNLOAD_FOLDER)
+        util.ColorPrinter.print_green("Done")
 
-    elif b_cl.flags.action.lower() in ["diff"]:
-        file_bytes = util.get_file_bytes(b_cl.flags.action_arg)  # TODO: check path, if incorrect -> list files
-        hash = b_cl.cip.compute_hash(file_bytes)
-        f_name = util.get_file_name(b_cl.flags.action_arg)
-        query_res = b_cl.db_m.get(f_name)
-        if not query_res:
-            print(f_name + "is not in your vault.")
-        cloud_hash = query_res[0][DB_ENTRY_HASH_OFFSET]
-        if hash == cloud_hash:
-            print("Files are identical.")
-        else:
-            print("Files are different")
     elif b_cl.flags.action.lower() in ["del", "delete", "remove", "rm"]:
         f_file = b_cl.select_file_blind(b_cl.flags.action_arg)
         choice = input("Are you sure? [Y/N]: ")
@@ -182,8 +172,7 @@ def main():
             print("Terminating... ")
             exit(0)
 
-        print("Deleting " + f_file["name"] + "...")
-        b_cl.db_m.delete(util.remove_cipher_extension(f_file["name"]))
+        print("Deleting ...")
         b_cl.man.delete(b_cl.service, f_file)
         util.ColorPrinter.print_green("Deleted")
 
