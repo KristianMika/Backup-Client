@@ -10,7 +10,9 @@ from googleapiclient.discovery import build
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 
-def authorize(cred_dir):
+def authenticate(cred_dir):
+    """ Authenticates against Google Drive API """
+
     pickle_path = os.path.join(cred_dir, 'token.pickle')
     creds = None
 

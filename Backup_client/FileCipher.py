@@ -8,6 +8,7 @@ import util
 
 
 class FileCipher:
+    """ Class that manages all cryptographic methods """
 
     def encrypt_file(self, path, key, iv, name_iv, f):
         f_bytes = util.get_file_bytes(path)
@@ -41,6 +42,9 @@ class FileCipher:
 
     def decrypt_file(self, path, key, res_path, name_iv, f):
         cipher = util.get_file_bytes(path)
+
+
+        # encrypted file == 16B IV | xB encrypted file content
         iv = cipher[:16]
         cipher = cipher[16:]
         obj2 = AES.new(key, AES.MODE_CBC, iv)

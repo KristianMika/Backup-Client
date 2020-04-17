@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# -*- coding: utf-8 -*-
 
 import argparse
 import os
@@ -23,11 +24,11 @@ class Client:
 
         if self.flags.verbose: print("Authenticating against google drive... ", end="")
 
-        self.service = client_auth.authorize(self.CREDENTIAL_FILES)
+        self.service = client_auth.authenticate(self.CREDENTIAL_FILES)
 
         if self.flags.verbose: print("OK")
 
-        self.man = FileManager.FileManager()
+        self.man = FileManager.FileManager(self.service)
 
         self.cip = FileCipher.FileCipher()
 
@@ -51,7 +52,7 @@ class Client:
 
         if self.flags.verbose: print("Uploading ...", end='')
 
-        self.man.upload(enc_file_name, self.service)
+        self.man.upload(enc_file_name)
         self.ls_chached = False
 
         if self.flags.verbose: print("OK")
@@ -63,14 +64,14 @@ class Client:
         util.ColorPrinter.print_green("Uploaded.")
 
     def download_file(self, id, path, name):
-        self.man.download(self.service, id, path, name)
+        self.man.download( id, path, name)
 
     def decrypt_file(self, f_path, name, res_path):
 
         return self.cip.decrypt_file(os.path.join(f_path, name), self.key, res_path, self.name_iv, self.flags.force)
 
     def select_and_download_file(self):
-        files = self.man.list_files(self.service)
+        files = self.man.list_files()
         choice = input("Select: ")
         choice = int(choice)
         res = list(filter(lambda x: x["id"] == files[choice - 1]["id"], files))[0]
@@ -91,7 +92,7 @@ class Client:
 
     def list_files(self, files=None):
         if not files:
-            files = self.man.list_files(self.service)
+            files = self.man.list_files()
         dec_names = []
         for file in files:
             dec_names.append(self.cip.decrypt_filename(file["name"], self.key, self.name_iv))
@@ -99,8 +100,10 @@ class Client:
         return files
 
     def select_file_blind(self, file_name):
-        enc_name = self.cip.encrypt_filename(file_name, self.key, self.name_iv)
-        res = self.man.search_file(self.service, enc_name)
+        res = []
+        if  file_name:
+            enc_name = self.cip.encrypt_filename(file_name, self.key, self.name_iv)
+            res = self.man.search_file( enc_name)
 
         if len(res) > 1:
             self.list_files(res)
@@ -115,7 +118,7 @@ class Client:
         if len(res) == 1:
             return res[0]
 
-        util.ColorPrinter.print_fail('Error ocured while locating your file.')
+        if file_name: util.ColorPrinter.print_fail('Error ocured while locating your file.')
 
         files = self.list_files()
 
@@ -176,7 +179,7 @@ def main():
             exit(0)
 
         print("Deleting ...")
-        b_cl.man.delete(b_cl.service, f_file)
+        b_cl.man.delete(f_file)
         util.ColorPrinter.print_green("Deleted")
 
 
