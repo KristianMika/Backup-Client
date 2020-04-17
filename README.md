@@ -17,17 +17,17 @@ google-auth-oauthlib
 
 
 ## Quick start
-
+- Run [install.sh](./install.sh)
 - [Enable](https://developers.google.com/drive/api/v3/quickstart/js) the drive API in your drive account.
-- Download "credentials.json" file an save it to CREDENTIAL_FOLDER.
-- Run [installation script](./install.sh)
+- Download "credentials.json" and save it to ~/LOGIN_CREDENTIALS.
+
 
 ## Usage
 ```
  vault [-h] [-v] [-f] [-o OUTPUT] action [action_arg]
  
  positional arguments:
-  action                UPLOAD / DOWNLOAD
+  action                UPLOAD / DOWNLOAD / LIST
   action_arg            [file name]
 
 optional arguments:
