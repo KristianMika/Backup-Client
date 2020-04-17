@@ -1,5 +1,5 @@
 # Login credential files
-LOGIN_CREDENTIALS/
+LOGIN_CREDENTIALS/*
 
 #idea files
 .idea/
