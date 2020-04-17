@@ -23,9 +23,31 @@ class FileManager:
         """ Uploads file to the drive """
 
         file_name = util.get_file_name(file_path)
-        file_metadata = {'name': file_name}
-        media = MediaFileUpload(file_path)
-        file = self.service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+
+        file_dupl = self.search_file(file_name)
+
+        # file is already in the vault
+        if file_dupl:
+
+            util.ColorPrinter.print_warning("This file is already in the vault.")
+            msg = "Do you want to overwrite it? [Y, N]: "
+
+            if not util.read_y_n(msg):
+                print("Terminating...")
+                return
+
+            file_id = file_dupl[0]["id"]
+            file = self.service.files().get(fileId=file_id).execute()
+
+            del file['id']
+            media_body = MediaFileUpload(file_path, resumable=True)
+
+            updated_file = self.service.files().update(fileId=file_id, body=file, media_body=media_body).execute()
+
+        else:
+            file_metadata = {'name': file_name}
+            media = MediaFileUpload(file_path)
+            file = self.service.files().create(body=file_metadata, media_body=media, fields='id').execute()
 
     def download(self, id, path, name):
         """ Download a file with it's id == <id> and stores it to path/name """
@@ -48,7 +70,7 @@ class FileManager:
         file = self.service.files().create(body=file_metadata, fields='id').execute()
 
     def search_file(self, f_name):
-        """ Searches for a file name in the drive """
+        """ Searches for a filename in the drive """
 
         results = self.service.files().list(q="name contains '" + f_name + "'").execute()
         return results.get('files', [])

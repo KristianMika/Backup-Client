@@ -4,6 +4,8 @@
 import argparse
 import os
 
+import httplib2
+
 import FileCipher
 import FileManager
 import client_auth
@@ -11,128 +13,145 @@ import util
 
 CREDENTIAL_FILES = "~/.LOGIN_CREDENTIALS"
 ENCRYPTION_POOL = "/tmp/encryption_pool"
-DOWNLOAD_FOLDER = ""
 
 AES_KEY_SIZE = 32
+IV_SIZE = 16
 
 
 class Client:
+    """ The top class that executes user's requests """
 
-    def __init__(self, flags, CREDENTIAL_FILES):
+    def __init__(self, flags, cred_dir):
+
         self.flags = flags
-        self.CREDENTIAL_FILES = os.path.expanduser(CREDENTIAL_FILES)
+
+        self.CREDENTIAL_FILES = os.path.expanduser(cred_dir)
+
+        self.download_folder = os.getcwd()
 
         if self.flags.verbose: print("Authenticating against google drive... ", end="")
 
-        self.service = client_auth.authenticate(self.CREDENTIAL_FILES)
+        try:
+            self.service = client_auth.authenticate(self.CREDENTIAL_FILES)
+
+        except httplib2.ServerNotFoundError:
+
+            util.ColorPrinter.print_fail("Authentication failed! Please, check your Internet connection. ")
+            exit(1)
 
         if self.flags.verbose: print("OK")
 
-        self.man = FileManager.FileManager(self.service)
+        self.manager = FileManager.FileManager(self.service)
 
-        self.cip = FileCipher.FileCipher()
+        self.cipher = FileCipher.FileCipher()
 
-        self.key = util.get_file_bytes(os.path.join(self.CREDENTIAL_FILES, "key.secret"))
+        self.key = self.load_key(os.path.join(self.CREDENTIAL_FILES, "key.secret"))
 
-        self.name_iv = util.get_file_bytes(os.path.join(self.CREDENTIAL_FILES, "iv.secret"))
+    def load_key(self, f_path):
+        """ Loads key used for encryption """
+
+        key = ''
+        if not os.path.exists(f_path):
+            key = self.cipher.generate_bytes(AES_KEY_SIZE)
+            print("No key was found... \nGenerating a new one")
+            util.write_file_bytes(self.key, self.CREDENTIAL_FILES, "key.secret", False)
+        else:
+            return util.get_file_bytes(f_path)
+
+        return key
 
     def upload_file(self, f_path):
+        """ Encrypts and uploads file at <f_path>"""
 
         if not os.path.exists(f_path):
-            util.ColorPrinter.print_fail("Pleas double check your file name.")
+            util.ColorPrinter.print_fail("Please double-check your file name.")
             exit(1)
-        iv = self.cip.generate_bytes(16)
 
-        f_bytes = util.get_file_bytes(f_path)
+        iv = self.cipher.generate_bytes(IV_SIZE)
 
         if self.flags.verbose: print("Encrypting...", end='')
-        enc_file_name = self.cip.encrypt_file(f_path, self.key, iv, self.name_iv, self.flags.force)
 
-        if self.flags.verbose: print("OK")
+        enc_file_name = self.cipher.encrypt_file(f_path, self.key, iv, self.flags.force, ENCRYPTION_POOL)
 
-        if self.flags.verbose: print("Uploading ...", end='')
+        if self.flags.verbose: print("OK\nUploading ...")
 
-        self.man.upload(enc_file_name)
-        self.ls_chached = False
+        self.manager.upload(enc_file_name)
 
-        if self.flags.verbose: print("OK")
+        if self.flags.verbose: print("OK\nDeleting tmp files... ", end='')
 
-        if self.flags.verbose: print("Deleting tmp files... ", end='')
         os.remove(enc_file_name)
+
         if self.flags.verbose: print("OK")
 
-        util.ColorPrinter.print_green("Uploaded.")
-
-    def download_file(self, id, path, name):
-        self.man.download( id, path, name)
-
-    def decrypt_file(self, f_path, name, res_path):
-
-        return self.cip.decrypt_file(os.path.join(f_path, name), self.key, res_path, self.name_iv, self.flags.force)
-
-    def select_and_download_file(self):
-        files = self.man.list_files()
-        choice = input("Select: ")
-        choice = int(choice)
-        res = list(filter(lambda x: x["id"] == files[choice - 1]["id"], files))[0]
-
-        self.download_file(res["id"], ENCRYPTION_POOL, res["name"])
-
-        self.decrypt_file(ENCRYPTION_POOL, res["name"], DOWNLOAD_FOLDER)
-
-        os.remove(os.path.join(ENCRYPTION_POOL, res["name"]))
-
-    def gen_key_file(self):
-        key = self.cip.generate_bytes(AES_KEY_SIZE)
-        util.write_file_bytes(key, self.CREDENTIAL_FILES, "key.secret", False)
-
-    def gen_iv_file(self):
-        key = self.cip.generate_bytes(16)
-        util.write_file_bytes(key, self.CREDENTIAL_FILES, "iv.secret", False)
+        util.ColorPrinter.print_green("Done.")
 
     def list_files(self, files=None):
+        """ Download file names from the drive, decrypts them and prints them.
+            It can also take a list of files as an argument."""
+
         if not files:
-            files = self.man.list_files()
+            files = self.manager.list_files()
+
         dec_names = []
         for file in files:
-            dec_names.append(self.cip.decrypt_filename(file["name"], self.key, self.name_iv))
+            dec_names.append(self.cipher.decrypt_filename(file["name"], self.key))
+
         util.prettify_listing(dec_names)
+
         return files
 
-    def select_file_blind(self, file_name):
+    def select_file_blindly(self, file_name):
+        """ Firstly, it encrypts the <file_name> entered by the user and searches for it in the drive.
+            If the file_name isn't precise, it lists all the files and lets the user choose one """
+
         res = []
-        if  file_name:
-            enc_name = self.cip.encrypt_filename(file_name, self.key, self.name_iv)
-            res = self.man.search_file( enc_name)
-
-        if len(res) > 1:
-            self.list_files(res)
-
-            choice = -1
-            while choice < 1 or choice > len(res):
-                choice = input("Which one did you mean?: [index] or x to exit:")
-                util.terminate(choice)
-                choice = int(choice)
-            return res[choice - 1]
+        # encrypt filename and search for it in the drive
+        if file_name:
+            enc_name = self.cipher.encrypt_filename(file_name, self.key)
+            res = self.manager.search_file(enc_name)
 
         if len(res) == 1:
             return res[0]
-
-        if file_name: util.ColorPrinter.print_fail('Error ocured while locating your file.')
 
         files = self.list_files()
 
         if not files:
             exit(0)
-        choice = -1
-        while choice < 1 or choice > len(files):
-            choice = input("Choose file to download by entering it's number or enter 'x' to exit: ")
+
+        choice = ''
+        while not choice.isdigit() or int(choice) < 1 or int(choice) > len(files):
+            choice = input("Choose a file to download by entering it's number or enter 'x' to exit: ")
             util.terminate(choice)
-            choice = int(choice)
-        return files[choice - 1]
+
+        return files[int(choice) - 1]
+
+    def download_file(self, file_id, f_enc_name, o_path=None):
+        """ Downloads file with the correct <file_id>, decrypts it,
+         decrypts it's filename and stores it to <o_path> """
+
+        if not o_path:
+            o_path = self.download_folder
+        else:
+            o_path = os.path.abspath(o_path)
+
+            if not os.path.exists(o_path):
+                util.ColorPrinter.print_fail("Folder " + o_path + " does not exist.")
+                exit(0)
+
+        self.manager.download(file_id, ENCRYPTION_POOL, f_enc_name)
+
+        if self.flags.verbose: print("Decrypting ...")
+
+        self.cipher.decrypt_file(os.path.join(ENCRYPTION_POOL, f_enc_name), self.key, o_path, self.flags.force)
+
+        os.remove(os.path.join(ENCRYPTION_POOL, f_enc_name))
+
+        if self.flags.verbose: util.ColorPrinter.print_green("Done")
 
 
 def parse_args():
+    """ Parses CL arguments """
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--verbose", action='store_true', help="enable verbose mode")
     parser.add_argument("-f", "--force", action='store_true', help="overwrite files without asking")
@@ -144,56 +163,43 @@ def parse_args():
 
 
 def main():
-    DOWNLOAD_FOLDER = os.getcwd()
+    """ The main method only calls methods according to the parsed CL arguments  """
+
     if not os.path.exists(ENCRYPTION_POOL):
         os.mkdir(ENCRYPTION_POOL)
 
-    b_cl = Client(parse_args(), CREDENTIAL_FILES)
+    b_client = Client(parse_args(), CREDENTIAL_FILES)
 
-    if b_cl.flags.action.lower() in ["u", "up", "upload"]:
-        abs_path = os.path.abspath(b_cl.flags.action_arg)
-        b_cl.upload_file(abs_path)
+    # Uploads the file
+    if b_client.flags.action.lower() in ["u", "up", "upload"]:
+        abs_path = os.path.abspath(b_client.flags.action_arg)
+        b_client.upload_file(abs_path)
 
-    elif b_cl.flags.action.lower() in ["l", "ls", "list"]:
-        b_cl.list_files()
+    # Lists the drive
+    elif b_client.flags.action.lower() in ["l", "ls", "list"]:
+        b_client.list_files()
 
+    # Downloads the file
+    elif b_client.flags.action.lower() in ["download", "d", "down"]:
+        f_file = b_client.select_file_blindly(b_client.flags.action_arg)
+        b_client.download_file(f_file["id"], f_file["name"], b_client.flags.output)
 
-    elif b_cl.flags.action.lower() in ["download", "d", "down"]:
-        f_file = b_cl.select_file_blind(b_cl.flags.action_arg)
-        b_cl.download_file(f_file["id"], ENCRYPTION_POOL, f_file["name"])
-        print("Decrypting ...")
-        o_path = DOWNLOAD_FOLDER
-        if (b_cl.flags.output):
-            o_path = os.path.abspath(b_cl.flags.output)
-            if not os.path.exists(o_path):
-                util.ColorPrinter.print_fail("Folder " + o_path + " does not exist.")
-                exit(0)
-        b_cl.decrypt_file(ENCRYPTION_POOL, f_file["name"], o_path)
-        util.ColorPrinter.print_green("Done")
+    # Removes the file
+    elif b_client.flags.action.lower() in ["del", "delete", "remove", "rm"]:
+        f_file = b_client.select_file_blindly(b_client.flags.action_arg)
 
-    elif b_cl.flags.action.lower() in ["del", "delete", "remove", "rm"]:
-        f_file = b_cl.select_file_blind(b_cl.flags.action_arg)
-        choice = input("Are you sure? [Y/N]: ")
-        if not util.read_y_n(choice):
-            print("Terminating... ")
+        if not util.read_y_n("Are you sure? [Y/N]: "):
             exit(0)
 
-        print("Deleting ...")
-        b_cl.man.delete(f_file)
-        util.ColorPrinter.print_green("Deleted")
+        if b_client.flags.verbose: print("Deleting ...")
+        b_client.manager.delete(f_file)
+        if b_client.flags.verbose: util.ColorPrinter.print_green("Done")
 
-
-
-
+    # In case the action argument is incorrect
     else:
-        print("Incorrect argument " + b_cl.flags.action + ".\nUse -h for help.")
+        print("Incorrect argument \"" + b_client.flags.action + "\".\nUse -h for help.")
+        exit(1)
 
 
 if __name__ == '__main__':
     main()
-
-    """
-    https://developers.google.com/drive/api/v3/search-files
-    
-    """
-

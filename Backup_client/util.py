@@ -14,10 +14,10 @@ def prettify_listing(items):
     """ Prints file names, one filename per line """
 
     if len(items) > 1:
-        print("{} item".format(len(items)))
+        print("{} items:".format(len(items)))
 
     elif len(items) == 1:
-        print("{} item".format(len(items)))
+        print("{} item:".format(len(items)))
 
     else:
         print("Your vault is empty")
@@ -25,6 +25,7 @@ def prettify_listing(items):
 
     for index, f_name in enumerate(items, start=1):
         print("{}. {}".format(index, f_name))
+    print()
 
 
 def get_file_bytes(path):
@@ -43,10 +44,9 @@ def write_file_bytes(f_bytes, f_path, f_name, forced):
     f_path = os.path.join(f_path, f_name)
 
     if os.path.exists(f_path) and not forced:
-        ColorPrinter.print_warning("File \"" + f_name + "\" already exists.")
-        choice = input("Do you want to overwrite it? [Y/N]: ")
+        ColorPrinter.print_warning("This file already exists.")
 
-        if not read_y_n(choice):
+        if not read_y_n("Do you want to overwrite it? [Y/N]: "):
             print("Terminating...")
             exit(0)
 
@@ -100,8 +100,10 @@ def terminate(choice):
 def read_y_n(inp):
     """ Takes user's input as an argument and translates it to bool """
 
-    if inp.lower() in ['y', 'yep', 'yeah', 'yes']:
+    choice = input(inp)
+    if choice.lower() in ['y', 'yep', 'yeah', 'yes']:
         return True
+
     return False
 
 
