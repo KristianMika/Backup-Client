@@ -2,40 +2,51 @@ import io
 import os
 
 
-def load_cred(path):
-    with open(path, "r") as file:
-        return file.readline()
-
-
 def save_file(fh, path, name):
+    """ Saves BytesIO stream into path/name """
+
     with io.open(os.path.join(path, name), "wb") as file:
         fh.seek(0)
         file.write(fh.read())
 
 
 def prettify_listing(items):
+    """ Prints file names, one filename per line """
+
     if len(items) > 1:
-        print("{} items".format(len(items)))
+        print("{} item".format(len(items)))
+
     elif len(items) == 1:
         print("{} item".format(len(items)))
+
     else:
         print("Your vault is empty")
         return
-    i = 1
-    for item in items:
-        print("{}. {}".format(i, item))
-        i += 1
-    print()
+
+    for index, f_name in enumerate(items, start=1):
+        print("{}. {}".format(index, f_name))
 
 
 def get_file_bytes(path):
+
+    """ Reads file content (binary)  """
+
     with open(path, "rb") as file:
-        bytes = file.read()
-    return bytes
+        f_bytes = file.read()
+
+    return f_bytes
 
 
-def write_file_bytes(bytes, f_path, f_name):
-    with open(os.path.join(f_path, f_name), "wb") as file:
+def write_file_bytes(bytes, f_path, f_name, forced):
+    f_path = os.path.join(f_path, f_name)
+    if os.path.exists(f_path) and not forced:
+        ColorPrinter.print_warning("File \"" + f_name + "\" already exists.")
+        choice = input("Do you want to overwrite it? [Y/N]: ")
+        if not read_y_n(choice):
+            print("Terminating...")
+            exit(0)
+
+    with open(f_path, "wb") as file:
         file.write(bytes)
 
 
@@ -73,6 +84,12 @@ def terminate(choice):
     if choice in ["x", "X", "exit", "EXIT"]:
         print("Terminating...")
         exit(0)
+
+
+def read_y_n(inp):
+    if inp.lower() in ['y', 'yep', 'yeah', 'yes']:
+        return True
+    return False
 
 
 class ColorPrinter:

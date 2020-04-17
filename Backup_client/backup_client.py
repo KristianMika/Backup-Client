@@ -8,25 +8,22 @@ import FileManager
 import client_auth
 import util
 
-CREDENTIAL_FILES = "/home/kiko/.LOGIN_CREDENTIALS"
+CREDENTIAL_FILES = "~/.LOGIN_CREDENTIALS"
 ENCRYPTION_POOL = "/tmp/encryption_pool"
 DOWNLOAD_FOLDER = ""
-DB_ENTRY_HASH_OFFSET = 1
-DB_ENTRY_KEY_OFFSET = 2
-DB_ENTRY_IV_OFFSET = 3
+
 AES_KEY_SIZE = 32
 
 
 class Client:
 
-    def __init__(self, flags):
+    def __init__(self, flags, CREDENTIAL_FILES):
         self.flags = flags
-        self.listed_files = []
-        self.ls_chached = False
+        self.CREDENTIAL_FILES = os.path.expanduser(CREDENTIAL_FILES)
 
-        if self.flags.verbose: print("Authorizing against google drive... ", end="")
+        if self.flags.verbose: print("Authenticating against google drive... ", end="")
 
-        self.service = client_auth.authorize()
+        self.service = client_auth.authorize(self.CREDENTIAL_FILES)
 
         if self.flags.verbose: print("OK")
 
@@ -34,9 +31,9 @@ class Client:
 
         self.cip = FileCipher.FileCipher()
 
-        self.key = util.get_file_bytes(os.path.join(CREDENTIAL_FILES, "key.secret"))
+        self.key = util.get_file_bytes(os.path.join(self.CREDENTIAL_FILES, "key.secret"))
 
-        self.name_iv = util.get_file_bytes(os.path.join(CREDENTIAL_FILES, "iv.secret"))
+        self.name_iv = util.get_file_bytes(os.path.join(self.CREDENTIAL_FILES, "iv.secret"))
 
     def upload_file(self, f_path):
 
@@ -48,7 +45,7 @@ class Client:
         f_bytes = util.get_file_bytes(f_path)
 
         if self.flags.verbose: print("Encrypting...", end='')
-        enc_file_name = self.cip.encrypt_file(f_path, self.key, iv, self.name_iv)
+        enc_file_name = self.cip.encrypt_file(f_path, self.key, iv, self.name_iv, self.flags.force)
 
         if self.flags.verbose: print("OK")
 
@@ -69,9 +66,8 @@ class Client:
         self.man.download(self.service, id, path, name)
 
     def decrypt_file(self, f_path, name, res_path):
-        decr_name = util.remove_cipher_extension(name)
 
-        self.cip.decrypt_file(os.path.join(f_path, name), self.key, res_path, self.name_iv)
+        return self.cip.decrypt_file(os.path.join(f_path, name), self.key, res_path, self.name_iv, self.flags.force)
 
     def select_and_download_file(self):
         files = self.man.list_files(self.service)
@@ -87,11 +83,11 @@ class Client:
 
     def gen_key_file(self):
         key = self.cip.generate_bytes(AES_KEY_SIZE)
-        util.write_file_bytes(key, CREDENTIAL_FILES, "key.secret")
+        util.write_file_bytes(key, self.CREDENTIAL_FILES, "key.secret", False)
 
     def gen_iv_file(self):
         key = self.cip.generate_bytes(16)
-        util.write_file_bytes(key, CREDENTIAL_FILES, "iv.secret")
+        util.write_file_bytes(key, self.CREDENTIAL_FILES, "iv.secret", False)
 
     def list_files(self, files=None):
         if not files:
@@ -137,6 +133,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--verbose", action='store_true', help="enable verbose mode")
     parser.add_argument("-f", "--force", action='store_true', help="overwrite files without asking")
+    parser.add_argument('-o', "--output", type=str, help="selects output path")
     parser.add_argument("action", type=str, help="UPLOAD / DOWNLOAD")
     parser.add_argument("action_arg", nargs='?', help="[file name]")
 
@@ -148,7 +145,7 @@ def main():
     if not os.path.exists(ENCRYPTION_POOL):
         os.mkdir(ENCRYPTION_POOL)
 
-    b_cl = Client(parse_args())
+    b_cl = Client(parse_args(), CREDENTIAL_FILES)
 
     if b_cl.flags.action.lower() in ["u", "up", "upload"]:
         abs_path = os.path.abspath(b_cl.flags.action_arg)
@@ -162,19 +159,28 @@ def main():
         f_file = b_cl.select_file_blind(b_cl.flags.action_arg)
         b_cl.download_file(f_file["id"], ENCRYPTION_POOL, f_file["name"])
         print("Decrypting ...")
-        b_cl.decrypt_file(ENCRYPTION_POOL, f_file["name"], DOWNLOAD_FOLDER)
+        o_path = DOWNLOAD_FOLDER
+        if (b_cl.flags.output):
+            o_path = os.path.abspath(b_cl.flags.output)
+            if not os.path.exists(o_path):
+                util.ColorPrinter.print_fail("Folder " + o_path + " does not exist.")
+                exit(0)
+        b_cl.decrypt_file(ENCRYPTION_POOL, f_file["name"], o_path)
         util.ColorPrinter.print_green("Done")
 
     elif b_cl.flags.action.lower() in ["del", "delete", "remove", "rm"]:
         f_file = b_cl.select_file_blind(b_cl.flags.action_arg)
         choice = input("Are you sure? [Y/N]: ")
-        if choice.lower() not in ["y", "yes", "yeah"]:
+        if not util.read_y_n(choice):
             print("Terminating... ")
             exit(0)
 
         print("Deleting ...")
         b_cl.man.delete(b_cl.service, f_file)
         util.ColorPrinter.print_green("Deleted")
+
+
+
 
     else:
         print("Incorrect argument " + b_cl.flags.action + ".\nUse -h for help.")
@@ -187,3 +193,4 @@ if __name__ == '__main__':
     https://developers.google.com/drive/api/v3/search-files
     
     """
+

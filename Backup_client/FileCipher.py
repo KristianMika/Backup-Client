@@ -9,14 +9,14 @@ import util
 
 class FileCipher:
 
-    def encrypt_file(self, path, key, iv, name_iv):
+    def encrypt_file(self, path, key, iv, name_iv, f):
         f_bytes = util.get_file_bytes(path)
         cipher = self.encrypt_bytes(f_bytes, key, iv)
 
         enc_name = self.encrypt_filename(util.get_file_name(path), key, name_iv)
 
         f_name = enc_name + ".cipher"
-        util.write_file_bytes(iv + cipher, backup_client.ENCRYPTION_POOL, f_name)
+        util.write_file_bytes(iv + cipher, backup_client.ENCRYPTION_POOL, f_name, f)
         return os.path.join(backup_client.ENCRYPTION_POOL, f_name)
 
     def encrypt_bytes(self, f_bytes, key, iv):
@@ -39,7 +39,7 @@ class FileCipher:
     def generate_bytes(self, n):
         return get_random_bytes(n)
 
-    def decrypt_file(self, path, key, res_path, name_iv):
+    def decrypt_file(self, path, key, res_path, name_iv, f):
         cipher = util.get_file_bytes(path)
         iv = cipher[:16]
         cipher = cipher[16:]
@@ -48,4 +48,5 @@ class FileCipher:
         plain = util.unpad(plain)
 
         res_name = self.decrypt_filename(util.remove_cipher_extension(util.get_file_name(path)), key, name_iv)
-        util.write_file_bytes(plain, res_path, res_name)
+        util.write_file_bytes(plain, res_path, res_name, f)
+        return res_name
