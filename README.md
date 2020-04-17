@@ -1,8 +1,9 @@
 # Backup-Client
 
 
-Backup client is a simple client, that uses Google Drive Api and is able to upload / download your files from google drive.
+Backup client is a simple client, that uses Google Drive Api and is able to upload / download your files from Google Drive.
 All files (even their names) are encrypted before being uploaded to your drive account.
+
 
 
 
@@ -35,9 +36,9 @@ optional arguments:
   -f, --force           overwrite files without asking
   -o OUTPUT, --output OUTPUT
                         selects output path
-
 ```
-![demo gif](./images/demo.gif)
+<div style="text-align:center"><img src="./images.demo.gif" /></div>
+
 
 #### Disclaimer!!!
 ##### This is just a simple weekend project and is not intended to be used in a real life.
