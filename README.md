@@ -37,7 +37,7 @@ optional arguments:
   -o OUTPUT, --output OUTPUT
                         selects output path
 ```
-<div style="text-align:center"><img src="./images.demo.gif" /></div>
+<div style="text-align:center"><img src="./images/demo.gif" /></div>
 
 
 #### Disclaimer!!!
