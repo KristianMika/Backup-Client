@@ -23,10 +23,10 @@ sudo apt-get install python3
 sudo apt-get install python3-pip
 
 #install necessary python libraries
-pip3 install -U google-api-python-client google-auth-httplib2 google-auth-oauthlib
+pip3 install -U google-api-python-client google-auth-httplib2 google-auth-oauthlib pycrypto
 
 # create credential folder
-mkdir -p ~/.CREDENTIAL_FILES
+mkdir -p ~/.VAULT_CREDENTIALS
 
 # copy all the necessary files
 sudo mkdir -p $FILES_DIR
