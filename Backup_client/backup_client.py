@@ -11,7 +11,7 @@ import FileManager
 import client_auth
 import util
 
-CREDENTIAL_FILES = "~/.LOGIN_CREDENTIALS"
+CREDENTIAL_FILES = "~/.VAULT_CREDENTIALS"
 ENCRYPTION_POOL = "/tmp/encryption_pool"
 
 AES_KEY_SIZE = 32
@@ -26,6 +26,10 @@ class Client:
         self.flags = flags
 
         self.CREDENTIAL_FILES = os.path.expanduser(cred_dir)
+
+        self.cipher = FileCipher.FileCipher()
+
+        self.key = self.load_key(os.path.join(self.CREDENTIAL_FILES, "key.secret"))
 
         self.download_folder = os.getcwd()
 
@@ -43,18 +47,19 @@ class Client:
 
         self.manager = FileManager.FileManager(self.service)
 
-        self.cipher = FileCipher.FileCipher()
-
-        self.key = self.load_key(os.path.join(self.CREDENTIAL_FILES, "key.secret"))
-
     def load_key(self, f_path):
         """ Loads key used for encryption """
 
         key = ''
         if not os.path.exists(f_path):
             key = self.cipher.generate_bytes(AES_KEY_SIZE)
-            print("No key was found... \nGenerating a new one")
-            util.write_file_bytes(self.key, self.CREDENTIAL_FILES, "key.secret", False)
+
+            print("Couldn't find \"key.secret\" \nGenerating a new one")
+            if not util.read_y_n("Continue? [Y/N]: "):
+                print("Terminating...")
+                exit(1)
+
+            util.write_file_bytes(key, self.CREDENTIAL_FILES, "key.secret", False)
         else:
             return util.get_file_bytes(f_path)
 
@@ -156,7 +161,7 @@ def parse_args():
     parser.add_argument("-v", "--verbose", action='store_true', help="enable verbose mode")
     parser.add_argument("-f", "--force", action='store_true', help="overwrite files without asking")
     parser.add_argument('-o', "--output", type=str, help="selects output path")
-    parser.add_argument("action", type=str, help="UPLOAD / DOWNLOAD")
+    parser.add_argument("action", type=str, help="UPLOAD / DOWNLOAD / LIST")
     parser.add_argument("action_arg", nargs='?', help="[file name]")
 
     return parser.parse_args()
