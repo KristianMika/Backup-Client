@@ -7,6 +7,8 @@ from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
+import util
+
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 
@@ -21,11 +23,16 @@ def authenticate(cred_dir):
             creds = pickle.load(token)
 
     if not creds or not creds.valid:
+        cred_path = os.path.join(cred_dir, 'credentials.json')
+
+        if not os.path.exists(cred_path):
+            util.ColorPrinter.print_fail("Couldn't locate \"credentials.json\".\nTerminating...")
+            exit(1)
+
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                os.path.join(cred_dir, 'credentials.json'), SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(cred_path, SCOPES)
             creds = flow.run_local_server(port=0)
 
         with open(pickle_path, 'wb') as token:
