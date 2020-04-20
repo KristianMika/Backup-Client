@@ -1,4 +1,4 @@
-# Backup-Client
+# Backup Client
 
 
 Backup client is a simple client, that uses Google Drive Api and is able to upload / download your files from Google Drive.
@@ -10,16 +10,17 @@ All files (even their names) are encrypted before being uploaded to your drive a
 ## Requirements
 ```
 python 3.7
-google-api-python-client
-google-auth-httplib2
-google-auth-oauthlib
+- google-api-python-client
+- google-auth-httplib2
+- google-auth-oauthlib
+- pycrypto
 ```
 
 
 ## Quick start
 - Run [install.sh](./install.sh)
 - [Enable](https://developers.google.com/drive/api/v3/quickstart/js) the drive API in your drive account.
-- Download "credentials.json" and save it to ~/LOGIN_CREDENTIALS.
+- Download "credentials.json" and save it to ~/VAULT_CREDENTIALS.
 
 
 ## Usage
