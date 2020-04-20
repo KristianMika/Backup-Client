@@ -1,7 +1,7 @@
 # Backup Client
 
 
-Backup client is a simple client, that uses Google Drive Api and is able to upload / download your files from Google Drive.
+Backup client is a simple cloud client, that uses Google Drive Api and can upload/download files from Google Drive.
 All files (even their names) are encrypted before being uploaded to your drive account.
 
 
@@ -18,7 +18,8 @@ python 3.7
 
 
 ## Quick start
-- Run [install.sh](./install.sh)
+- Linux:
+  - Run [install.sh](./install.sh)
 - [Enable](https://developers.google.com/drive/api/v3/quickstart/js) the drive API in your drive account.
 - Download "credentials.json" and save it to ~/VAULT_CREDENTIALS.
 
@@ -38,10 +39,14 @@ optional arguments:
   -o OUTPUT, --output OUTPUT
                         selects output path
 ```
+
+## Notes
+- Vault works properly only if all the files on your cloud are encrypted and have been uploaded there using this Backup Client. Coexistence of encrypted and unencrypted files may be implemented later.
+- If you accidentally delete "~.VAULT_CREDETENTIALS/key.secret", you lose all your files.
 <p align="center"">
     <img src="./images/demo.gif" />
 </p>
 
 
-#### Disclaimer!!!
-##### This is just a simple weekend project and is not intended to be used in a real life.
+## Disclaimer!!!
+###### This is just a simple weekend project and is not intended to be used in a real life.
